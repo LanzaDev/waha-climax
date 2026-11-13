@@ -1,0 +1,20 @@
+# IDE
+.idea/
+.vscode/
+
+# Artefatos do scraper (prints, relatórios, QRs)
+prints_windy/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Sistema
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log

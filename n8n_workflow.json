@@ -1,0 +1,223 @@
+{
+  "name": "Clima Windy → WhatsApp (Bauru)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ⚙️ CONFIGURE AQUI\n\n**1. HORA DO ENVIO** → clique no node **\"Agendado\"** e escolha a hora em *Trigger at Hour*.\n\n**2. NÚMERO** → clique no node **\"Definir Destinat\"** e troque o valor do campo `chatId` (formato: `55` + DDD + número + `@c.us`).\n\n**3. ENVIAR NA HORA** → clique em **Execute Workflow** (o node \"Executar na mão\" dispara o fluxo).",
+        "width": 460,
+        "height": 240,
+        "color": 4
+      },
+      "id": "b2f0c1d0-0000-4000-8000-000000000010",
+      "name": "📌 Como configurar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-620, -240]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "a1f0c1d0-0001-4000-8000-000000000001",
+      "name": "Agendado (escolha a hora)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-580, -20],
+      "notes": "PARA MUDAR A HORA: clique neste node → 'Trigger at Hour' (0-24) e 'Trigger at Minute'. Pode mudar 'Days Between Triggers' pra 2, 7 etc."
+    },
+    {
+      "parameters": {},
+      "id": "a1f0c1d0-0002-4000-8000-000000000002",
+      "name": "Executar na mão (manual)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-580, 160],
+      "notes": "ENVIAR AGORA: clique em 'Execute Workflow' lá em cima — este node dispara o fluxo completo na hora."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "chatId",
+              "value": "5514999222285@c.us",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "session",
+              "value": "session_01m7ah73fncj0kqfsf3kaqqtfb",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "a1f0c1d0-0003-4000-8000-000000000003",
+      "name": "Definir Destinatário",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-340, 70],
+      "notes": "TROQUE O NÚMERO AQUI: campo chatId = 55 + DDD + número + @c.us (ex: 5514999222285@c.us). session = nome da sessão no WAHA."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/relatorio",
+        "sendBody": false,
+        "sendHeaders": false,
+        "options": {
+          "timeout": 180000,
+          "retry": {
+            "retry": {
+              "maxRetries": 1,
+              "waitBetweenRetries": 5000
+            }
+          }
+        }
+      },
+      "id": "a1f0c1d0-0004-4000-8000-000000000004",
+      "name": "Gerar Relatório (API local)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 70],
+      "notes": "Chama a api.py rodando na máquina host na porta 8000 (iniciar.bat). Demora ~15-40s."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rel = $input.first().json;\nconst cfg = $('Definir Destinatário').first().json;\n\nif (!rel.ok) {\n  throw new Error(rel.erro || 'Falha ao gerar o relatório Windy');\n}\nif (!rel.imagem_base64) {\n  throw new Error('Resposta não contém a imagem (imagem_base64)');\n}\n\nconst bodyImagem = {\n  session: cfg.session,\n  chatId: cfg.chatId,\n  file: {\n    mimetype: 'image/png',\n    filename: 'windy_' + rel.data + '_' + String(rel.horario).replace(/:/g, '-') + '.png',\n    data: rel.imagem_base64,\n  },\n  caption: rel.resumo,\n};\n\nconst bodyTexto = {\n  session: cfg.session,\n  chatId: cfg.chatId,\n  text: '📄 *Relatório completo — Windy*\\n\\n' + rel.texto,\n};\n\nreturn [{ json: { chatId: cfg.chatId, resumo: rel.resumo, bodyImagem, bodyTexto } }];"
+      },
+      "id": "a1f0c1d0-0005-4000-8000-000000000005",
+      "name": "Montar Mensagens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 70]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendImage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.bodyImagem) }}",
+        "sendHeaders": false,
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1f0c1d0-0006-4000-8000-000000000006",
+      "name": "WAHA → Enviar Imagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, -20],
+      "notes": "Manda o print do mapa com o resumo como legenda."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Montar Mensagens').item.json.bodyTexto) }}",
+        "sendHeaders": false,
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1f0c1d0-0007-4000-8000-000000000007",
+      "name": "WAHA → Enviar Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, -20],
+      "notes": "Manda o relatório completo em texto. Se quiser só a imagem, delete este node."
+    }
+  ],
+  "connections": {
+    "Agendado (escolha a hora)": {
+      "main": [
+        [
+          {
+            "node": "Definir Destinatário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar na mão (manual)": {
+      "main": [
+        [
+          {
+            "node": "Definir Destinatário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir Destinatário": {
+      "main": [
+        [
+          {
+            "node": "Gerar Relatório (API local)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Relatório (API local)": {
+      "main": [
+        [
+          {
+            "node": "Montar Mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Mensagens": {
+      "main": [
+        [
+          {
+            "node": "WAHA → Enviar Imagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WAHA → Enviar Imagem": {
+      "main": [
+        [
+          {
+            "node": "WAHA → Enviar Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "local"
+  }
+}
