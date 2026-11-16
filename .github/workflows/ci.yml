@@ -20,7 +20,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Lint (ruff)
-        run: ruff check .
+        run: python -m ruff check .
 
       - name: Testes (pytest)
-        run: pytest -q
+        run: python -m pytest -q

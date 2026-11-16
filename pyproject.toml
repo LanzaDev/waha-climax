@@ -1,0 +1,8 @@
+# Configuração do pytest (raiz do repo).
+#
+# pythonpath = ["."] é ESSENCIAL: sem isso o `pytest` (executável) não acha
+# os módulos do projeto (config.py, scraper.py) — ele só funciona por
+# accident com `python -m pytest`, que adiciona o CWD ao sys.path.
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -42,6 +42,7 @@ contém dados pessoais**.
 | `requirements.txt` | Dependências (`pip install -r requirements.txt`) — travadas pra bater com a imagem Docker |
 | `requirements-dev.txt` | Dependências de desenvolvimento (pytest + ruff) |
 | `ruff.toml` | Regras do linter fixadas (local e CI usam as mesmas) |
+| `pyproject.toml` | Config do pytest (`pythonpath = ["."]`) — faz o `pytest` achar os módulos do projeto |
 | `.github/workflows/ci.yml` | CI: roda `ruff check` + `pytest` a cada push/PR |
 | `Dockerfile` | Imagem da API (Python + Chromium prontos, sem instalar nada na máquina) |
 | `docker-compose.yml` | Sobe a API em container com healthcheck e auto-restart |
@@ -176,6 +177,10 @@ pip install -r requirements-dev.txt   # pytest + ruff
 python -m pytest -q                   # 22 testes (rápidos, sem internet)
 python -m ruff check .                # lint
 ```
+
+> Use `python -m pytest` (e não `pytest` solto): o executável não coloca a
+> raiz do repo no `sys.path` e o import de `config.py`/`scraper.py` falha.
+> O `pyproject.toml` já resolve isso, mas o `python -m` é o mais garantido.
 
 O CI (`.github/workflows/ci.yml`) roda exatamente esses dois comandos em
 todo push/PR — se passar local, passa lá. As regras do ruff estão fixadas no
