@@ -37,7 +37,10 @@ contém dados pessoais**.
 | `teste_envio.py` | Teste de ponta a ponta via Python (gera relatório e manda no WhatsApp) |
 | `.env.example` | Modelo de configuração — copie para `.env` e edite com seus dados |
 | `.env` | **Seus dados** (número, sessão, coordenadas). Local, ignorado pelo git |
-| `requirements.txt` | Dependências (`pip install -r requirements.txt`) |
+| `requirements.txt` | Dependências (`pip install -r requirements.txt`) — travadas pra bater com a imagem Docker |
+| `Dockerfile` | Imagem da API (Python + Chromium prontos, sem instalar nada na máquina) |
+| `docker-compose.yml` | Sobe a API em container com healthcheck e auto-restart |
+| `.dockerignore` | Garante que `.env` e arquivos internos **nunca** entrem na imagem |
 
 > `prints_windy/` é criado automaticamente (prints, relatórios e QRs) e não
 > é versionado.
@@ -71,6 +74,16 @@ Edite o `.env` com **seus** dados:
 
 ### 3. Subir a API
 
+**Opção A — Docker (recomendado: não exige Python na máquina):**
+
+```bash
+docker compose up -d --build
+docker compose ps        # Status: healthy = no ar
+docker compose logs -f   # acompanhar atividade
+```
+
+**Opção B — Python local:**
+
 ```bat
 iniciar.bat
 ```
@@ -78,7 +91,12 @@ iniciar.bat
 Ou manualmente: `python api.py` → confirme em <http://localhost:8000/relatorio>
 (a primeira chamada leva ~15s — é o scraper rodando, é normal).
 
-> O n8n roda em Docker e acessa a máquina host por `host.docker.internal:8000`.
+> ⚠️ Use **uma opção por vez** — as duas usam a porta 8000. Para trocar de
+> modo: `docker compose down` (encerra o container) ou feche o `iniciar.bat`.
+
+> O n8n roda em Docker e acessa a máquina host por `host.docker.internal:8000`
+> — funciona igual com as duas opções. Em **Linux**, o compose do n8n precisa
+> de `extra_hosts: ["host.docker.internal:host-gateway"]`.
 
 ### 4. WhatsApp (WAHA)
 
@@ -191,7 +209,9 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 | Sintoma | Causa / solução |
 |---|---|
 | `ERRO DE CONFIGURAÇÃO: Variável '…' não definida` | Falta o `.env` → `copy .env.example .env` e preencha |
-| n8n erro `ECONNREFUSED host.docker.internal:8000` | API não está rodando → execute `iniciar.bat` |
+| n8n erro `ECONNREFUSED host.docker.internal:8000` | API não está rodando → `docker compose up -d` ou execute `iniciar.bat` |
+| `docker compose up` falha com porta 8000 em uso | Já existe uma API rodando → feche o `iniciar.bat` ou `docker compose down` |
+| Container `unhealthy` / sem subir | `docker compose logs api` mostra o erro; confirme que o Docker Desktop está aberto |
 | Agendamento **não dispara** (nada nas Executions) | Workflow inativo ou ativado por CLI → abra a UI e ligue o toggle **"Ativo"** |
 | WAHA `404` em `sendImage` | Sessão errada/parada ou número inválido |
 | WAHA `"status": "SCAN_QR_CODE"` / `"FAILED"` | Regere o QR e escaneie de novo (seção 4) |

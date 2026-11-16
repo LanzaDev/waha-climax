@@ -1,0 +1,23 @@
+# NUNCA subir para a imagem — segredos ficam fora
+.env
+
+# Não precisa na imagem
+.git
+.idea
+.vscode
+__pycache__
+prints_windy
+*.pyc
+Thumbs.db
+
+# Arquivos de documentação/auxílio (a imagem só recebe os .py via COPY)
+README.md
+.env.example
+.gitignore
+.dockerignore
+docker-compose.yml
+Dockerfile
+iniciar.bat
+n8n_workflow.json
+teste_envio.py
+requirements.txt.bak

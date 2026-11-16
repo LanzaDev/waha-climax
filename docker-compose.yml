@@ -1,0 +1,36 @@
+# API do relatório Windy (scraping com Playwright)
+#
+# Uso:
+#   copy .env.example .env   (edite com seus dados)
+#   docker compose up -d --build
+#   docker compose ps        (Status: healthy = no ar)
+#   docker compose logs -f   (ver atividade)
+#   docker compose down      (parar)
+#
+# ATENÇÃO: não rode junto com o iniciar.bat (ambos usam a porta 8000).
+# O n8n (stack separada) continua chamando host.docker.internal:8000.
+
+services:
+  api:
+    build: .
+    container_name: clima-api
+    ports:
+      - "8000:8000"
+    # .env é opcional aqui: sem ele a API sobe com os padrões do .env.example
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # prints/relatórios ficam disponíveis na máquina
+      - ./prints_windy:/app/prints_windy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
