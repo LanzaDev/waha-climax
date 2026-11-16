@@ -1,18 +1,19 @@
 
-from playwright.sync_api import sync_playwright
+import base64
+import re
 from datetime import datetime
 from pathlib import Path
-import base64
 
-from config import obter, obter_int
+from playwright.sync_api import sync_playwright
+
+from config import obter, obter_coordenadas, obter_int
 
 # =====================================================
 # CONFIGURAÇÕES (tudo via .env — ver .env.example)
 # =====================================================
 
-# Localização do mapa no Windy (configure no .env)
-LAT = obter("CLIMA_LAT", "-22.264")
-LON = obter("CLIMA_LON", "-49.136")
+# Localização do mapa no Windy (configure no .env; valida na hora)
+LAT, LON = obter_coordenadas()
 LOCAL = obter("CLIMA_LOCAL", "Bauru/SP e região")
 URL = f"https://www.windy.com/{LAT}/{LON}?{LAT},{LON},9"
 
@@ -79,7 +80,7 @@ def gerar_relatorio(url=URL, headless=HEADLESS, wait_ms=TEMPO_CARREGAMENTO,
             print("[4/4] Extraindo informações da página...")
             try:
                 texto_bruto = page.locator("body").inner_text(timeout=15000)
-                linhas = [l.strip() for l in texto_bruto.splitlines() if l.strip()]
+                linhas = [linha.strip() for linha in texto_bruto.splitlines() if linha.strip()]
                 texto = "\n".join(linhas)
             except Exception as erro:
                 texto = f"Não foi possível extrair os textos.\nErro: {erro}"
@@ -138,17 +139,20 @@ def montar_resumo(agora, texto, local=None):
     local = local or LOCAL
     linhas = texto.splitlines()
 
-    # Temperaturas de hoje: a primeira linha que começa com graus (ex: "24°\t21°\t...")
+    # Temperaturas de hoje: primeira linha cujo 1º valor é uma temperatura
+    # (ex: "24°\t21°\t..." ou "-3°\t-5°\t..." — aceita negativas)
     temps_hoje = ""
-    for i, linha in enumerate(linhas):
-        if linha.startswith(("0°", "1°", "2°", "3°")) or (
-            linha[:2].rstrip("°").isdigit() and "°" in linha[:4] and "\t" in linha
-        ):
-            valores = [v for v in linha.split("\t") if v][:8]
-            if len(valores) >= 4:
-                horas = ["0h", "3h", "6h", "9h", "12h", "15h", "18h", "21h"]
-                temps_hoje = "  ".join(f"{h}: {v}" for h, v in zip(horas, valores))
-                break
+    for linha in linhas:
+        if "\t" not in linha:
+            continue
+        primeiro = linha.split("\t", 1)[0].strip()
+        if not re.fullmatch(r"-?\d{1,3}°", primeiro):
+            continue
+        valores = [v for v in linha.split("\t") if v][:8]
+        if len(valores) >= 4:
+            horas = ["0h", "3h", "6h", "9h", "12h", "15h", "18h", "21h"]
+            temps_hoje = "  ".join(f"{h}: {v}" for h, v in zip(horas, valores))
+            break
 
     # Previsibilidade dos próximos dias:
     # linhas na ordem: "Quinta-feira 12" / "50%" / "previsibilidade"
@@ -177,7 +181,7 @@ def montar_resumo(agora, texto, local=None):
 
 
 # =====================================================
-# CLI (mantém o comportamento original: python print.py)
+# CLI (mantém o comportamento original: python scraper.py)
 # =====================================================
 
 def executar():

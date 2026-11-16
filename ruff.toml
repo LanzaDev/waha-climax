@@ -1,0 +1,8 @@
+# Regras fixadas aqui para valer IGUAL no local e no CI (.github/workflows/ci.yml)
+line-length = 100
+
+[lint]
+# E4/E7/E9/F = erros essenciais do pycodestyle/pyflakes
+# I  = ordenação de imports
+# UP = sintaxe moderna (ex: f-string em vez de .format)
+select = ["E4", "E7", "E9", "F", "I", "UP"]

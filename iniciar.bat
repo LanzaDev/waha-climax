@@ -18,12 +18,27 @@ if not exist ".env" (
 
 echo ==========================================
 echo  API CLIMA WINDY (Windy -^> n8n -^> WAHA)
-echo  Porta: 8000   (Ctrl+C para parar)
+echo  Ctrl+C para parar
 echo ==========================================
-python api.py
-if errorlevel 1 (
-  echo.
-  echo  [!] 'python' nao encontrado. Tentando 'py'...
-  py api.py
+
+rem Escolhe o executavel ANTES de rodar (evita rodar duas vezes)
+set "PY="
+python --version >nul 2>nul
+if not errorlevel 1 set "PY=python"
+if not defined PY (
+  py --version >nul 2>nul
+  if not errorlevel 1 set "PY=py"
 )
+if not defined PY (
+  echo.
+  echo  [!] Python nao encontrado.
+  echo      Instale em https://www.python.org/downloads/ e marque
+  echo      "Add python.exe to PATH" durante a instalacao.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo  Python: %PY%
+%PY% api.py
 pause

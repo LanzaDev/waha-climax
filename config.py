@@ -18,6 +18,7 @@ Regras:
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 PASTA_RAIZ = Path(__file__).resolve().parent
@@ -66,6 +67,47 @@ def obter_int(chave: str, padrao: int) -> int:
     except ValueError:
         print(f"[config] Aviso: '{chave}={bruto}' não é um número — usando {padrao}.")
         return padrao
+
+
+def obter_coordenadas() -> tuple[str, str]:
+    """CLIMA_LAT/CLIMA_LON validados. Aceita vírgula decimal (22,264 → 22.264)."""
+    lat_txt = (obter("CLIMA_LAT", "-22.264") or "").strip().replace(",", ".")
+    lon_txt = (obter("CLIMA_LON", "-49.136") or "").strip().replace(",", ".")
+    try:
+        lat, lon = float(lat_txt), float(lon_txt)
+    except ValueError:
+        raise ConfigError(
+            f"CLIMA_LAT/CLIMA_LON inválidos: '{lat_txt}' / '{lon_txt}'. "
+            "Use ponto (ou vírgula) decimal, ex: -22.264"
+        ) from None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ConfigError(
+            f"CLIMA_LAT/CLIMA_LON fora do intervalo: {lat}, {lon} "
+            "(latitude -90..90, longitude -180..180)."
+        )
+    return lat_txt, lon_txt
+
+
+def obter_destinatario() -> tuple[str, str]:
+    """WHATSAPP_CHAT_ID + WAHA_SESSION validados (formato e placeholder do .env.example)."""
+    chat = (obter("WHATSAPP_CHAT_ID", obrigatorio=True) or "").strip()
+    sessao = (obter("WAHA_SESSION", obrigatorio=True) or "").strip()
+
+    if "AQUI" in chat.upper() or "AQUI" in sessao.upper():
+        raise ConfigError(
+            "Placeholder do .env.example ainda está no lugar — edite "
+            "WHATSAPP_CHAT_ID e WAHA_SESSION no seu .env."
+        )
+    if not re.fullmatch(r".{5,}@(c|g)\.us", chat):
+        raise ConfigError(
+            f"WHATSAPP_CHAT_ID inválido: '{chat}'. "
+            "Formato: 55 + DDD + número + @c.us (ex: 5514999999999@c.us)."
+        )
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", sessao):
+        raise ConfigError(
+            f"WAHA_SESSION inválido: '{sessao}'. Use apenas letras, números, _ e -."
+        )
+    return chat, sessao
 
 
 # Carrega o .env assim que o módulo é importado

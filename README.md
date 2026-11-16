@@ -29,15 +29,20 @@ contém dados pessoais**.
 
 | Arquivo | O que é |
 |---|---|
-| `print.py` | Scraper do Windy. Expõe `gerar_relatorio()`; `python print.py` continua funcionando (salva em `prints_windy/`) |
+| `scraper.py` | Scraper do Windy. Expõe `gerar_relatorio()`; `python scraper.py` continua funcionando (salva em `prints_windy/`) |
 | `api.py` | Servidor HTTP local (porta 8000) que o n8n chama. Devolve JSON com `resumo`, `texto` e `imagem_base64` |
-| `config.py` | Carrega o `.env` (sem dependências externas) e expõe `obter()` / `obter_int()` |
+| `config.py` | Carrega o `.env` (sem dependências externas). Expõe `obter()` / `obter_int()` e as validações `obter_coordenadas()` / `obter_destinatario()` (falham cedo com mensagem clara se o `.env` estiver errado) |
 | `iniciar.bat` | Sobe a API com 1 clique (Windows). Se não existir `.env`, cria a partir do modelo |
-| `n8n_workflow.json` | Export do workflow pra referência / reimport no n8n (**vem com placeholders**) |
+| `n8n_workflow.json` | Export do workflow principal pra referência / reimport no n8n (**vem com placeholders**) |
+| `n8n_error_workflow.json` | Workflow de **alerta de falha** (Error Trigger → WhatsApp). Vincule como *Error Workflow* do principal |
+| `tests/` | Testes pytest do `scraper.py` e do `config.py` (sem internet/navegador) |
 | `teste_envio.py` | Teste de ponta a ponta via Python (gera relatório e manda no WhatsApp) |
 | `.env.example` | Modelo de configuração — copie para `.env` e edite com seus dados |
 | `.env` | **Seus dados** (número, sessão, coordenadas). Local, ignorado pelo git |
 | `requirements.txt` | Dependências (`pip install -r requirements.txt`) — travadas pra bater com a imagem Docker |
+| `requirements-dev.txt` | Dependências de desenvolvimento (pytest + ruff) |
+| `ruff.toml` | Regras do linter fixadas (local e CI usam as mesmas) |
+| `.github/workflows/ci.yml` | CI: roda `ruff check` + `pytest` a cada push/PR |
 | `Dockerfile` | Imagem da API (Python + Chromium prontos, sem instalar nada na máquina) |
 | `docker-compose.yml` | Sobe a API em container com healthcheck e auto-restart |
 | `.dockerignore` | Garante que `.env` e arquivos internos **nunca** entrem na imagem |
@@ -130,10 +135,51 @@ Abra <http://localhost:5678> e importe `n8n_workflow.json`
 > ativar (seção "Trocar o número de destino" abaixo).
 
 > ⚠️ **Armadilha do `import:workflow`**: o import **desativa** o workflow
-> (o n8n 2.44 traz `--activeState=false` por padrão e a flag `fromJson` só
-> funciona em modo queue). Depois de importar, **ative pela UI** (toggle
-> "Ativo") — nunca por CLI, senão o servidor não registra o cron e o
-> agendamento não dispara.
+> (o n8n 2.44 traz `--activeState=false` por padrão). Depois de importar,
+> ative de um dos dois jeitos:
+>
+> - **UI** (recomendado): toggle **"Ativo"** no workflow; ou
+> - **CLI + restart**: `n8n update:workflow --id=… --active=true` e depois
+>   `docker restart n8n` — sem o restart o servidor não re-registra o cron e
+>   o agendamento não dispara.
+
+### 6. Workflow de alerta de falha (recomendado)
+
+Se a API estiver desligada ou o WAHA cair, o robô para de vez — ninguém
+avisa. O `n8n_error_workflow.json` resolve: é um workflow separado com
+**Error Trigger** que manda um ❌ no seu WhatsApp com o node que falhou e o
+motivo.
+
+Importe (⋯ → **Import from File**), configure o node **"Definir
+Destinatário"** (mesmos `chatId`/`session` do principal) e então no
+**workflow principal** abra *Settings* → **Error Workflow** → escolha
+*"Alerta de falha — Clima Windy"* → Save.
+
+Teste: com a API **desligada**, clique em *Execute Workflow* no principal —
+em segundos chega:
+
+```
+❌ Falha no robô do clima
+📍 Nó: Gerar Relatório (API local)
+⚠️ The service refused the connection - perhaps it is offline
+```
+
+> O alerta também tem um node **"Executar na mão (teste)"** que manda um 🧪
+> pra confirmar que o caminho WhatsApp está vivo, sem precisar de falha.
+
+---
+
+## Testes e lint
+
+```bash
+pip install -r requirements-dev.txt   # pytest + ruff
+python -m pytest -q                   # 22 testes (rápidos, sem internet)
+python -m ruff check .                # lint
+```
+
+O CI (`.github/workflows/ci.yml`) roda exatamente esses dois comandos em
+todo push/PR — se passar local, passa lá. As regras do ruff estão fixadas no
+`ruff.toml` pra valer igual em qualquer máquina.
 
 ---
 
@@ -145,7 +191,8 @@ Node **"Agendado (escolha a hora)"** → ajuste *Trigger at Hour* /
 *Trigger at Minute* → **Save**. Pronto, re-agenda sozinho.
 
 > Se algum dia não disparar: desliga e liga o toggle **"Ativo"** do workflow
-> (ativação feita **pela UI** é processada pelo servidor e re-registra o cron).
+> (ou `n8n update:workflow --active=true` + `docker restart n8n`) — o
+> servidor só re-registra o cron quando o workflow é (re)ativado.
 
 ### 📱 Trocar o número de destino
 
@@ -212,9 +259,10 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 | n8n erro `ECONNREFUSED host.docker.internal:8000` | API não está rodando → `docker compose up -d` ou execute `iniciar.bat` |
 | `docker compose up` falha com porta 8000 em uso | Já existe uma API rodando → feche o `iniciar.bat` ou `docker compose down` |
 | Container `unhealthy` / sem subir | `docker compose logs api` mostra o erro; confirme que o Docker Desktop está aberto |
-| Agendamento **não dispara** (nada nas Executions) | Workflow inativo ou ativado por CLI → abra a UI e ligue o toggle **"Ativo"** |
+| Agendamento **não dispara** (nada nas Executions) | Workflow inativo → ative de novo (toggle **"Ativo"** na UI, ou `update:workflow --active=true` + `docker restart n8n`) |
 | WAHA `404` em `sendImage` | Sessão errada/parada ou número inválido |
 | WAHA `"status": "SCAN_QR_CODE"` / `"FAILED"` | Regere o QR e escaneie de novo (seção 4) |
+| Falha no agendamento e **ninguém sabe** | Configure o workflow de alerta (seção 6) — ele avisa ❌ no WhatsApp quando o principal falha |
 | Print chegando em branco/preto | Aumente o tempo: `CLIMA_WAIT_MS=20000` |
 | Mensagem duplicada | Existem 2 workflows iguais → apague/ative só 1 |
 | Code node: `Unexpected token ','` | `jsCode` do n8n precisa ser **string**, não array de linhas (reimporte o `n8n_workflow.json` corrigido) |

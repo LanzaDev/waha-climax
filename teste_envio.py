@@ -8,9 +8,10 @@ Uso:
     python teste_envio.py
 """
 import json
+import urllib.error
 import urllib.request
 
-from config import ConfigError, obter, obter_int
+from config import ConfigError, obter, obter_destinatario, obter_int
 
 WAHA = obter("WAHA_URL", "http://localhost:3000") or "http://localhost:3000"
 PORTA_API = obter_int("CLIMA_PORT", 8000)
@@ -29,8 +30,7 @@ def post(url, payload):
 
 def main():
     try:
-        sessao = obter("WAHA_SESSION", obrigatorio=True)
-        chat_id = obter("WHATSAPP_CHAT_ID", obrigatorio=True)
+        chat_id, sessao = obter_destinatario()
     except ConfigError as erro:
         print(f"ERRO DE CONFIGURAÇÃO: {erro}")
         raise SystemExit(1)

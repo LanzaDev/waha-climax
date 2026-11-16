@@ -10,7 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Só o que a API precisa rodar
-COPY config.py print.py api.py ./
+COPY config.py scraper.py api.py ./
 
 # Pasta de saída (no compose é sobrescrita por volume na máquina)
 RUN mkdir -p /app/prints_windy

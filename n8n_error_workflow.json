@@ -1,0 +1,153 @@
+{
+  "name": "Alerta de falha — Clima Windy",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🔔 ALERTA DE FALHA\n\nDispara **sozinho** quando o workflow principal falhar.\n\n**1.** Configure o node **\"Definir Destinatário\"** (mesmo número/sessão do workflow principal).\n\n**2.** Vincule no workflow principal: *Settings* → *Error Workflow* → escolha este.\n\n**3.** Teste: clique em *Execute Workflow* (o node \"Executar na mão\" manda um aviso de teste).",
+        "width": 470,
+        "height": 230,
+        "color": 5
+      },
+      "id": "e1f0c1d0-0000-4000-8000-000000000010",
+      "name": "📌 Como configurar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-640, -300]
+    },
+    {
+      "parameters": {},
+      "id": "e1f0c1d0-0001-4000-8000-000000000001",
+      "name": "Erro do workflow (dispara sozinho)",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-560, -120],
+      "notes": "Este node só dispara quando o workflow principal (com Error Workflow vinculado) falha numa execução de produção."
+    },
+    {
+      "parameters": {},
+      "id": "e1f0c1d0-0002-4000-8000-000000000002",
+      "name": "Executar na mão (teste)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-560, 80],
+      "notes": "TESTE: clica em Execute Workflow — manda um aviso de teste no WhatsApp pra conferir que o alerta funciona."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "chatId",
+              "value": "SEU_NUMERO_AQUI@c.us",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "session",
+              "value": "SUA_SESSAO_AQUI",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "e1f0c1d0-0003-4000-8000-000000000003",
+      "name": "Definir Destinatário",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-320, -20],
+      "notes": "MESMO número/sessão do workflow principal — troque aqui (chatId = 55 + DDD + número + @c.us)."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Definir Destinatário').first().json;\nconst entrada = $input.first().json || {};\n\nif (!/^\\d{5,20}@(c|g)\\.us$/.test(cfg.chatId)) {\n  throw new Error('chatId inválido no node \"Definir Destinatário\" — formato: 55 + DDD + número + @c.us');\n}\n\nconst ex = entrada.execution || {};\nconst err = ex.error || {};\nconst agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\n// Execução manual do próprio alerta (ou exemplo do Error Trigger) = teste\nconst ehTeste = !ex.error || ex.mode === 'manual';\n\nlet texto;\nif (ehTeste) {\n  texto = '🧪 *Teste do alerta de falha*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    'Tudo certo por aqui — este é apenas um teste manual do alerta.';\n} else {\n  const detalhes = [err.message, err.description].filter(Boolean).join(' — ') || 'sem detalhes';\n  texto = '❌ *Falha no robô do clima*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    '🧩 Workflow: ' + ((entrada.workflow && entrada.workflow.name) || '?') + '\\n' +\n    '📍 Nó: ' + (ex.lastNodeExecuted || '?') + '\\n\\n' +\n    '⚠️ ' + detalhes;\n}\n\nreturn [{ json: { body: { session: cfg.session, chatId: cfg.chatId, text: texto } } }];"
+      },
+      "id": "e1f0c1d0-0004-4000-8000-000000000004",
+      "name": "Montar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, -20]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "sendHeaders": false,
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "retry": {
+              "maxRetries": 2,
+              "waitBetweenRetries": 3000
+            }
+          }
+        }
+      },
+      "id": "e1f0c1d0-0005-4000-8000-000000000005",
+      "name": "WAHA → Enviar aviso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [160, -20]
+    }
+  ],
+  "connections": {
+    "Erro do workflow (dispara sozinho)": {
+      "main": [
+        [
+          {
+            "node": "Definir Destinatário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar na mão (teste)": {
+      "main": [
+        [
+          {
+            "node": "Definir Destinatário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir Destinatário": {
+      "main": [
+        [
+          {
+            "node": "Montar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar aviso": {
+      "main": [
+        [
+          {
+            "node": "WAHA → Enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "local"
+  }
+}

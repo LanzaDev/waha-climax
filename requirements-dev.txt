@@ -1,0 +1,4 @@
+# Dependências de desenvolvimento (lint + testes)
+-r requirements.txt
+pytest>=8.0
+ruff>=0.8

@@ -24,7 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from config import obter, obter_int
-from print import gerar_relatorio
+from scraper import gerar_relatorio
 
 HOST = obter("CLIMA_HOST", "0.0.0.0") or "0.0.0.0"
 PORTA = obter_int("CLIMA_PORT", 8000)
@@ -73,13 +73,16 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def log_message(self, fmt, *args):
+        # /health é consultado pelo healthcheck a cada 30s — poluiria os logs
+        if self.path.split("?")[0].rstrip("/") == "/health":
+            return
         print(f"[api] {self.address_string()} - {fmt % args}")
 
 
 def main():
     servidor = ThreadingHTTPServer((HOST, PORTA), Handler)
     print(f"API Windy rodando em http://localhost:{PORTA}/relatorio  (escuta: {HOST})")
-    print("Health check: http://localhost:{}/health".format(PORTA))
+    print(f"Health check: http://localhost:{PORTA}/health")
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:
