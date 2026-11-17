@@ -89,7 +89,11 @@ def obter_coordenadas() -> tuple[str, str]:
 
 
 def obter_destinatario() -> tuple[str, str]:
-    """WHATSAPP_CHAT_ID + WAHA_SESSION validados (formato e placeholder do .env.example)."""
+    """WHATSAPP_CHAT_ID + WAHA_SESSION validados.
+
+    O destino pode ser um número privado (`...@c.us`) OU um grupo
+    (`...@g.us`) — o formato é o mesmo, só muda o sufixo.
+    """
     chat = (obter("WHATSAPP_CHAT_ID", obrigatorio=True) or "").strip()
     sessao = (obter("WAHA_SESSION", obrigatorio=True) or "").strip()
 
@@ -98,10 +102,11 @@ def obter_destinatario() -> tuple[str, str]:
             "Placeholder do .env.example ainda está no lugar — edite "
             "WHATSAPP_CHAT_ID e WAHA_SESSION no seu .env."
         )
-    if not re.fullmatch(r".{5,}@(c|g)\.us", chat):
+    if not re.fullmatch(r"[^@\s]+@(c|g)\.us", chat):
         raise ConfigError(
             f"WHATSAPP_CHAT_ID inválido: '{chat}'. "
-            "Formato: 55 + DDD + número + @c.us (ex: 5514999999999@c.us)."
+            "Use seu número (55 + DDD + número + @c.us) ou o ID de um grupo "
+            "(120363...@g.us). Grupo: GET http://localhost:3000/api/{sessao}/groups"
         )
     if not re.fullmatch(r"[A-Za-z0-9_-]+", sessao):
         raise ConfigError(

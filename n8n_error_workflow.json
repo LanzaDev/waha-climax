@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## 🔔 ALERTA DE FALHA\n\nDispara **sozinho** quando o workflow principal falhar.\n\n**1.** Configure o node **\"Definir Destinatário\"** (mesmo número/sessão do workflow principal).\n\n**2.** Vincule no workflow principal: *Settings* → *Error Workflow* → escolha este.\n\n**3.** Teste: clique em *Execute Workflow* (o node \"Executar na mão\" manda um aviso de teste).",
+        "content": "## 🔔 ALERTA DE FALHA\n\nDispara **sozinho** quando o workflow principal falhar.\n\n**1.** Configure o node **\"Definir Destinatário\"** — pode ser **seu número** (`55` + DDD + número + `@c.us`) **ou um grupo** (`120363...@g.us`).\n   → ID do grupo: `GET http://localhost:3000/api/{sessao}/groups` (campo **JID**)\n   → ⚠️ A conta do WAHA precisa estar no grupo.\n   → Use o **mesmo destino** do workflow principal (ou o privado, se preferir receber o alerta só nele).\n\n**2.** Vincule no workflow principal: *Settings* → *Error Workflow* → escolha este.\n\n**3.** Teste: clique em *Execute Workflow* (o node \"Executar na mão\" manda um aviso de teste).",
         "width": 470,
         "height": 230,
         "color": 5
@@ -58,12 +58,12 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [-320, -20],
-      "notes": "MESMO número/sessão do workflow principal — troque aqui (chatId = 55 + DDD + número + @c.us)."
+      "notes": "DESTINO DO ALERTA — mesmo formato do workflow principal:\n• Seu número: 55 + DDD + número + @c.us  (ex: SEU_NUMERO_AQUI@c.us)\n• Um grupo: 120363...@g.us  (ex: 120363000000000000@g.us)\n  ID do grupo: GET http://localhost:3000/api/{sessao}/groups (campo JID).\nO campo session = nome da sessão no WAHA."
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Definir Destinatário').first().json;\nconst entrada = $input.first().json || {};\n\nif (!/^\\d{5,20}@(c|g)\\.us$/.test(cfg.chatId)) {\n  throw new Error('chatId inválido no node \"Definir Destinatário\" — formato: 55 + DDD + número + @c.us');\n}\n\nconst ex = entrada.execution || {};\nconst err = ex.error || {};\nconst agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\n// Execução manual do próprio alerta (ou exemplo do Error Trigger) = teste\nconst ehTeste = !ex.error || ex.mode === 'manual';\n\nlet texto;\nif (ehTeste) {\n  texto = '🧪 *Teste do alerta de falha*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    'Tudo certo por aqui — este é apenas um teste manual do alerta.';\n} else {\n  const detalhes = [err.message, err.description].filter(Boolean).join(' — ') || 'sem detalhes';\n  texto = '❌ *Falha no robô do clima*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    '🧩 Workflow: ' + ((entrada.workflow && entrada.workflow.name) || '?') + '\\n' +\n    '📍 Nó: ' + (ex.lastNodeExecuted || '?') + '\\n\\n' +\n    '⚠️ ' + detalhes;\n}\n\nreturn [{ json: { body: { session: cfg.session, chatId: cfg.chatId, text: texto } } }];"
+        "jsCode": "const cfg = $('Definir Destinatário').first().json;\nconst entrada = $input.first().json || {};\n\nif (!/^[^@\\s]+@(c|g)\\.us$/.test(cfg.chatId)) {\n  throw new Error('chatId inválido no node \"Definir Destinatário\" — use seu número (55+DDD+número @c.us) ou o ID de um grupo (@g.us). Grupo: GET http://localhost:3000/api/{sessao}/groups');\n}\n\nconst ex = entrada.execution || {};\nconst err = ex.error || {};\nconst agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\n// Execução manual do próprio alerta (ou exemplo do Error Trigger) = teste\nconst ehTeste = !ex.error || ex.mode === 'manual';\n\nlet texto;\nif (ehTeste) {\n  texto = '🧪 *Teste do alerta de falha*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    'Tudo certo por aqui — este é apenas um teste manual do alerta.';\n} else {\n  const detalhes = [err.message, err.description].filter(Boolean).join(' — ') || 'sem detalhes';\n  texto = '❌ *Falha no robô do clima*\\n\\n' +\n    '📅 ' + agora + '\\n' +\n    '🧩 Workflow: ' + ((entrada.workflow && entrada.workflow.name) || '?') + '\\n' +\n    '📍 Nó: ' + (ex.lastNodeExecuted || '?') + '\\n\\n' +\n    '⚠️ ' + detalhes;\n}\n\nreturn [{ json: { body: { session: cfg.session, chatId: cfg.chatId, text: texto } } }];"
       },
       "id": "e1f0c1d0-0004-4000-8000-000000000004",
       "name": "Montar aviso",

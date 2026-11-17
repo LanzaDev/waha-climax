@@ -1,12 +1,12 @@
 # 🌤 Clima Windy → n8n → WAHA → WhatsApp
 
 Robô de monitoramento meteorológico: captura o **mapa e a previsão do Windy**
-com Playwright, gera um relatório em texto e manda **imagem + texto no privado
-de um número** via WhatsApp (WAHA), tudo orquestrado pelo **n8n**.
+com Playwright, gera um relatório em texto e manda **imagem + texto no seu
+privado ou num grupo do WhatsApp** via WAHA, tudo orquestrado pelo **n8n**.
 
-Localização do mapa, número de destino e sessão do WAHA são configurados em
-**`.env`** (arquivo local, não versionado) e no workflow — o repositório **não
-contém dados pessoais**.
+Localização do mapa, destino (seu número ou um grupo) e sessão do WAHA são
+configurados em **`.env`** (arquivo local, não versionado) e no workflow — o
+repositório **não contém dados pessoais**.
 
 ## Arquitetura
 
@@ -20,7 +20,7 @@ contém dados pessoais**.
             │  POST :3000/api/sendImage  +  /api/sendText
             ▼
 ┌────────────────────────┐        WhatsApp        ┌──────────────────────┐
-│  WAHA (Docker :3000)   │ ─────────────────────► │  SEU NÚMERO (privado) │
+│  WAHA (Docker :3000)   │ ─────────────────────► │  SEU NÚMERO ou GRUPO  │
 │  sessão WORKING        │                        │                       │
 └────────────────────────┘                        └──────────────────────┘
 ```
@@ -72,7 +72,7 @@ Edite o `.env` com **seus** dados:
 
 | Variável | O que é |
 |---|---|
-| `WHATSAPP_CHAT_ID` | Número de destino: `55 + DDD + número + @c.us` |
+| `WHATSAPP_CHAT_ID` | Destino: seu número (`55 + DDD + número + @c.us`) **ou** um grupo (`120363...@g.us`) |
 | `WAHA_SESSION` | Nome da sessão criada no WAHA |
 | `CLIMA_LAT` / `CLIMA_LON` / `CLIMA_LOCAL` | Centro do mapa e rótulo do relatório |
 
@@ -120,11 +120,13 @@ GET http://localhost:3000/api/{NOME_DA_SESSAO}/auth/qr   → image/png
 POST http://localhost:3000/api/sessions/{NOME_DA_SESSAO}/restart
 ```
 
-O nome da sessão e o número de destino ficam em dois lugares (use o mesmo
-nos dois):
+O nome da sessão e o destino ficam em dois lugares (use o mesmo nos dois):
 
 - **n8n** → node **"Definir Destinatário"** (campo `session` e `chatId`)
 - **Python** → `.env` (`WAHA_SESSION` e `WHATSAPP_CHAT_ID`)
+
+O `chatId` pode ser o **seu número** (`@c.us`) ou o **ID de um grupo**
+(`@g.us`) — veja a seção "Trocar o destino (seu número **ou** um grupo)".
 
 ### 5. Workflow no n8n
 
@@ -133,7 +135,7 @@ Abra <http://localhost:5678> e importe `n8n_workflow.json`
 
 > O JSON importado vem com **placeholders** (`SEU_NUMERO_AQUI@c.us`,
 > `SUA_SESSAO_AQUI`) — configure o node **"Definir Destinatário"** antes de
-> ativar (seção "Trocar o número de destino" abaixo).
+> ativar (seção "Trocar o destino (seu número **ou** um grupo)" abaixo).
 
 > ⚠️ **Armadilha do `import:workflow`**: o import **desativa** o workflow
 > (o n8n 2.44 traz `--activeState=false` por padrão). Depois de importar,
@@ -199,21 +201,62 @@ Node **"Agendado (escolha a hora)"** → ajuste *Trigger at Hour* /
 > (ou `n8n update:workflow --active=true` + `docker restart n8n`) — o
 > servidor só re-registra o cron quando o workflow é (re)ativado.
 
-### 📱 Trocar o número de destino
+### 📱 Trocar o destino (seu número **ou** um grupo)
 
-**No n8n** → node **"Definir Destinatário"** → campo **`chatId`**:
+O relatório pode ir para o **seu privado** ou para um **grupo do WhatsApp** — é
+só o valor do `chatId` que muda (o sufixo `@c.us` = pessoa, `@g.us` = grupo).
 
+**No n8n** → node **"Definir Destinatário"** → campo **`chatId`**, e **No
+Python** → `WHATSAPP_CHAT_ID` do `.env` (os dois com o **mesmo** valor):
+
+| Destino | Formato do `chatId` | Exemplo |
+|---|---|---|
+| 👤 Seu número (privado) | `55` + DDD + número + `@c.us` | `5514999999999@c.us` |
+| 👥 Um grupo | ID do grupo + `@g.us` | `120363000000000000@g.us` |
+
+#### Como descobrir o ID do grupo
+
+```http
+GET http://localhost:3000/api/{NOME_DA_SESSAO}/groups
 ```
-55 + DDD + número + @c.us      ex: 5511999999999@c.us
+
+Cada grupo vem com o campo **`JID`** — é esse valor que vai no `chatId`:
+
+```json
+[
+  { "JID": "120363000000000000@g.us", "Name": "Meu grupo do clima", ... }
+]
 ```
 
-**No Python** (`teste_envio.py`) → campo `WHATSAPP_CHAT_ID` do `.env`
-(mesmo formato).
+> ⚠️ **A conta do WAHA precisa estar no grupo** (e, de preferência, ser admin
+> dela). Crie o grupo pelo WhatsApp, adicione a conta do bot e só depois
+> configure o `chatId`.
+
+> 💡 Dica: o mesmo endpoint mostra o nome do grupo, então dá pra confirmar
+> que você pegou o grupo certo antes de configurar.
+
+### 👥 Mandar para um grupo — passo a passo
+
+1. **Crie o grupo** no WhatsApp e adicione a conta do bot (a mesma que está
+   logada no WAHA).
+2. **Descubra o ID**: `GET http://localhost:3000/api/{sessao}/groups` → copie
+   o `JID` do grupo.
+3. **No n8n**: node *"Definir Destinatário"* → `chatId` = o JID.
+4. **No `.env`**: `WHATSAPP_CHAT_ID=` o mesmo JID.
+5. **Teste**: clique em *Execute Workflow* — imagem + texto chegam no grupo.
+
+> O alerta de falha (❌) tem um `chatId` **próprio** (node *"Definir
+> Destinatário"* do workflow de alerta). Se quiser que o erro também vá para o
+> grupo, ponha o mesmo JID lá — senão ele continua indo só para o privado.
+
+> 📸 **WhatsApp comprime mais as imagens em grupo** do que no privado. Se o
+> print do Windy ficar ruim, delete o node *"WAHA → Enviar Imagem"* e deixe
+> só o texto (mais o resumo, que vai na legenda).
 
 ### ⚡ Enviar na hora (sem esperar o horário)
 
 Clique em **Execute Workflow** (o node **"Executar na mão"** dispara o fluxo).
-Em ~20s chega imagem + texto no seu WhatsApp.
+Em ~20s chega imagem + texto no seu WhatsApp (privado ou grupo).
 
 ---
 
@@ -232,7 +275,7 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 
 | Variável | Padrão | O que faz |
 |---|---|---|
-| `WHATSAPP_CHAT_ID` | — | Número de destino `…@c.us` (obrigatório no `teste_envio.py`) |
+| `WHATSAPP_CHAT_ID` | — | Destino: seu número `…@c.us` **ou** um grupo `…@g.us` (obrigatório no `teste_envio.py`) |
 | `WAHA_SESSION` | — | Nome da sessão no WAHA (obrigatório no `teste_envio.py`) |
 | `WAHA_URL` | `http://localhost:3000` | URL do WAHA |
 | `CLIMA_LAT` / `CLIMA_LON` | `-22.264` / `-49.136` | Centro do mapa no Windy |
@@ -247,12 +290,15 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 
 ## 🔒 Privacidade
 
-- O `.env` (número, sessão, coordenadas) está no `.gitignore` e **não é
+- O `.env` (número/grupo, sessão, coordenadas) está no `.gitignore` e **não é
   versionado** — seus dados ficam só na sua máquina.
 - O repositório público traz apenas `.env.example` com **placeholders**, e o
-  `n8n_workflow.json` também.
+  `n8n_workflow.json` também (inclusive os IDs de grupo — são do seu WhatsApp).
 - A API devolve caminhos de arquivo apenas como **nome** (sem caminho
   absoluto com usuário da máquina).
+- Mandar para um grupo **não expõe nada além do relatório**: só quem estiver
+  no grupo lê. Ainda assim, o ID do grupo é dado pessoal — ele fica no `.env`
+  e no n8n, nunca no git.
 
 > **Trocou de máquina?** `copy .env.example .env`, preencha de novo e pronto.
 
@@ -266,6 +312,8 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 | Container `unhealthy` / sem subir | `docker compose logs api` mostra o erro; confirme que o Docker Desktop está aberto |
 | Agendamento **não dispara** (nada nas Executions) | Workflow inativo → ative de novo (toggle **"Ativo"** na UI, ou `update:workflow --active=true` + `docker restart n8n`) |
 | WAHA `404` em `sendImage` | Sessão errada/parada ou número inválido |
+| Envia pro privado mas **não chega no grupo** | A conta do WAHA não está no grupo → adicione-a; confira o ID em `GET /api/{sessao}/groups` (campo **JID**) |
+| `chatId inválido no node "Definir Destinatário"` | ID mal formatado — deve terminar em `@c.us` (pessoa) ou `@g.us` (grupo), sem espaços |
 | WAHA `"status": "SCAN_QR_CODE"` / `"FAILED"` | Regere o QR e escaneie de novo (seção 4) |
 | Falha no agendamento e **ninguém sabe** | Configure o workflow de alerta (seção 6) — ele avisa ❌ no WhatsApp quando o principal falha |
 | Print chegando em branco/preto | Aumente o tempo: `CLIMA_WAIT_MS=20000` |

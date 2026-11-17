@@ -127,3 +127,25 @@ def test_destinatario_aceita_grupo(monkeypatch):
     monkeypatch.setenv("WHATSAPP_CHAT_ID", "120363012345678901@g.us")
     monkeypatch.setenv("WAHA_SESSION", "session_abc123")
     assert obter_destinatario()[0].endswith("@g.us")
+
+
+def test_destinatario_aceita_grupo_id_antigo_com_hifen(monkeypatch):
+    """Grupos criados antes do formato 120363... usam ID com hífen (5514...-...@g.us)."""
+    monkeypatch.setenv("WHATSAPP_CHAT_ID", "5514000000000-1234567890@g.us")
+    monkeypatch.setenv("WAHA_SESSION", "session_abc123")
+    assert obter_destinatario()[0].endswith("@g.us")
+
+
+def test_destinatario_rejeita_sufixo_errado(monkeypatch):
+    """@newsletter / @broadcast não são destinos suportados."""
+    monkeypatch.setenv("WHATSAPP_CHAT_ID", "120363012345678901@newsletter")
+    monkeypatch.setenv("WAHA_SESSION", "session_abc123")
+    with pytest.raises(ConfigError, match="WHATSAPP_CHAT_ID inválido"):
+        obter_destinatario()
+
+
+def test_destinatario_rejeita_chat_com_espaco(monkeypatch):
+    monkeypatch.setenv("WHATSAPP_CHAT_ID", "120363 012345678901@g.us")
+    monkeypatch.setenv("WAHA_SESSION", "session_abc123")
+    with pytest.raises(ConfigError, match="WHATSAPP_CHAT_ID inválido"):
+        obter_destinatario()
