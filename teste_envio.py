@@ -1,5 +1,8 @@
 """Teste de envio pro privado via WAHA (mesmo fluxo do n8n).
 
+Envia apenas a IMAGEM do mapa (com o resumo na legenda), igual ao workflow
+do n8n - o relatorio completo em texto nao e enviado.
+
 Pré-requisitos:
     1. API rodando (iniciar.bat)
     2. .env configurado (copy .env.example .env e preencha)
@@ -51,7 +54,7 @@ def main():
         raise SystemExit(1)
     print(f"      ok={rel['ok']} em {rel.get('tempo_segundos')}s")
 
-    print(f"[2/2] Enviando imagem + texto pro WhatsApp ({chat_id})...")
+    print(f"[2/2] Enviando imagem pro WhatsApp ({chat_id})...")
     st, r1 = post(
         f"{WAHA}/api/sendImage",
         {
@@ -67,18 +70,8 @@ def main():
     )
     print(f"      sendImage -> HTTP {st}: {r1[:300]}")
 
-    st2, r2 = post(
-        f"{WAHA}/api/sendText",
-        {
-            "session": sessao,
-            "chatId": chat_id,
-            "text": "📄 *Relatório completo — Windy*\n\n" + rel["texto"],
-        },
-    )
-    print(f"      sendText  -> HTTP {st2}: {r2[:300]}")
-
-    if st == 201 and st2 == 201:
-        print("\nTESTE OK — mensagem entregue ao WhatsApp.")
+    if st == 201:
+        print("\nTESTE OK — imagem entregue ao WhatsApp.")
     else:
         print("\nTESTE COM PROBLEMA — veja os status HTTP acima.")
         raise SystemExit(1)

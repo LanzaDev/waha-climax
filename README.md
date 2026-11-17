@@ -1,8 +1,8 @@
 # 🌤 Clima Windy → n8n → WAHA → WhatsApp
 
 Robô de monitoramento meteorológico: captura o **mapa e a previsão do Windy**
-com Playwright, gera um relatório em texto e manda **imagem + texto no seu
-privado ou num grupo do WhatsApp** via WAHA, tudo orquestrado pelo **n8n**.
+com Playwright e manda **só a imagem do mapa** (com o resumo na legenda) no
+seu privado ou num grupo do WhatsApp via WAHA, tudo orquestrado pelo **n8n**.
 
 Localização do mapa, destino (seu número ou um grupo) e sessão do WAHA são
 configurados em **`.env`** (arquivo local, não versionado) e no workflow — o
@@ -17,7 +17,7 @@ repositório **não contém dados pessoais**.
 │  • Executar na mão     │  {resumo, texto,        │  (máquina local,      │
 └───────────┬────────────┘    imagem_base64}      │   porta 8000)         │
             │                                     └──────────────────────┘
-            │  POST :3000/api/sendImage  +  /api/sendText
+            │  POST :3000/api/sendImage
             ▼
 ┌────────────────────────┐        WhatsApp        ┌──────────────────────┐
 │  WAHA (Docker :3000)   │ ─────────────────────► │  SEU NÚMERO ou GRUPO  │
@@ -243,31 +243,33 @@ Cada grupo vem com o campo **`JID`** — é esse valor que vai no `chatId`:
    o `JID` do grupo.
 3. **No n8n**: node *"Definir Destinatário"* → `chatId` = o JID.
 4. **No `.env`**: `WHATSAPP_CHAT_ID=` o mesmo JID.
-5. **Teste**: clique em *Execute Workflow* — imagem + texto chegam no grupo.
+5. **Teste**: clique em *Execute Workflow* — a imagem chega no grupo.
 
 > O alerta de falha (❌) tem um `chatId` **próprio** (node *"Definir
 > Destinatário"* do workflow de alerta). Se quiser que o erro também vá para o
 > grupo, ponha o mesmo JID lá — senão ele continua indo só para o privado.
 
 > 📸 **WhatsApp comprime mais as imagens em grupo** do que no privado. Se o
-> print do Windy ficar ruim, delete o node *"WAHA → Enviar Imagem"* e deixe
-> só o texto (mais o resumo, que vai na legenda).
+> print do Windy ficar ruim, considere aumentar `CLIMA_WAIT_MS` (espera o
+> Windy carregar) para o mapa sair mais nítido.
 
 ### ⚡ Enviar na hora (sem esperar o horário)
 
 Clique em **Execute Workflow** (o node **"Executar na mão"** dispara o fluxo).
-Em ~20s chega imagem + texto no seu WhatsApp (privado ou grupo).
+Em ~20s chega a imagem no seu WhatsApp (privado ou grupo).
 
 ---
 
 ## Mensagem que chega
 
-1. **Imagem** 🖼 — print do mapa do Windy com *legenda* = resumo
-   (temperaturas por hora de hoje + previsibilidade dos próximos dias)
-2. **Texto** 📄 — relatório completo extraído da página
+**Imagem** 🖼 — print do mapa do Windy com *legenda* = resumo
+(temperaturas por hora de hoje + previsibilidade dos próximos dias).
 
-> Pra mudar: delete o node **"WAHA → Enviar Texto"** (só imagem) ou
-> **"WAHA → Enviar Imagem"** (só texto).
+É só isso: **uma mensagem por disparo**, com a imagem e o resumo na legenda.
+
+> O relatório completo em texto **não é enviado** (o node *"WAHA → Enviar
+> Texto"* foi removido do workflow). A API ainda devolve o campo `texto`
+> na resposta — é só não usá-lo no envio.
 
 ## Variáveis de ambiente (`.env`)
 

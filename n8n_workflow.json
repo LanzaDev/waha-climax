@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## ⚙️ CONFIGURE AQUI\n\n**1. HORA DO ENVIO** → clique no node **\"Agendado\"** e escolha a hora em *Trigger at Hour*.\n\n**2. ONDE ENVIAR** → clique no node **\"Definir Destinatário\"** e troque o campo `chatId`. Escolha **uma** das opções:\n\n   • **Seu número (privado):** `55` + DDD + número + `@c.us`\n     → ex: `5514999999999@c.us`\n\n   • **Um grupo do WhatsApp:** o ID do grupo termina com `@g.us`\n     → ex: `120363000000000000@g.us`\n     → Descubra o ID em: `GET http://localhost:3000/api/{sessao}/groups` (campo **JID**)\n     → ⚠️ A conta do WAHA precisa estar **no grupo** (e ser admin, de preferência)\n\n   📋 O `session` é o **mesmo** nos dois casos (nome da sessão no WAHA).\n\n**3. ENVIAR NA HORA** → clique em **Execute Workflow** (o node \"Executar na mão\" dispara o fluxo).",
+        "content": "## ⚙️ CONFIGURE AQUI\n\n**1. HORA DO ENVIO** → clique no node **\"Agendado\"** e escolha a hora em *Trigger at Hour*.\n\n**2. ONDE ENVIAR** → clique no node **\"Definir Destinatário\"** e troque o campo `chatId`. Escolha **uma** das opções:\n\n   • **Seu número (privado):** `55` + DDD + número + `@c.us`\n     → ex: `5514999999999@c.us`\n\n   • **Um grupo do WhatsApp:** o ID do grupo termina com `@g.us`\n     → ex: `120363000000000000@g.us`\n     → Descubra o ID em: `GET http://localhost:3000/api/{sessao}/groups` (campo **JID**)\n     → ⚠️ A conta do WAHA precisa estar **no grupo** (e ser admin, de preferência)\n\n   📋 O `session` é o **mesmo** nos dois casos (nome da sessão no WAHA).\n\n**3. ENVIAR NA HORA** → clique em **Execute Workflow** (o node \"Executar na mão\" dispara o fluxo).\n\nℹ️ **O que chega no WhatsApp:** só a **imagem** do mapa (com o resumo na legenda). O relatório completo em texto não é enviado.",
         "height": 240,
         "width": 460,
         "color": 4
@@ -97,9 +97,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const rel = $input.first().json;\nconst cfg = $('Definir Destinatário').first().json;\n\nif (!/^[^@\\s]+@(c|g)\\.us$/.test(cfg.chatId)) {\n  throw new Error('chatId inválido no node \"Definir Destinatário\" — use seu número (55+DDD+número @c.us) ou o ID de um grupo (@g.us). Grupo: GET http://localhost:3000/api/{sessao}/groups');\n}\n\nif (!rel.ok) {\n  throw new Error(rel.erro || 'Falha ao gerar o relatório Windy');\n}\nif (!rel.imagem_base64) {\n  throw new Error('Resposta não contém a imagem (imagem_base64)');\n}\n\nconst bodyImagem = {\n  session: cfg.session,\n  chatId: cfg.chatId,\n  file: {\n    mimetype: 'image/png',\n    filename: 'windy_' + rel.data + '_' + String(rel.horario).replace(/:/g, '-') + '.png',\n    data: rel.imagem_base64,\n  },\n  caption: rel.resumo,\n};\n\nconst bodyTexto = {\n  session: cfg.session,\n  chatId: cfg.chatId,\n  text: '📄 *Relatório completo — Windy*\\n\\n' + rel.texto,\n};\n\nreturn [{ json: { chatId: cfg.chatId, resumo: rel.resumo, bodyImagem, bodyTexto } }];"
+        "jsCode": "const rel = $input.first().json;\nconst cfg = $('Definir Destinatário').first().json;\n\nif (!/^[^@\\s]+@(c|g)\\.us$/.test(cfg.chatId)) {\n  throw new Error('chatId inválido no node \"Definir Destinatário\" — use seu número (55+DDD+número @c.us) ou o ID de um grupo (@g.us). Grupo: GET http://localhost:3000/api/{sessao}/groups');\n}\n\nif (!rel.ok) {\n  throw new Error(rel.erro || 'Falha ao gerar o relatório Windy');\n}\nif (!rel.imagem_base64) {\n  throw new Error('Resposta não contém a imagem (imagem_base64)');\n}\n\nconst bodyImagem = {\n  session: cfg.session,\n  chatId: cfg.chatId,\n  file: {\n    mimetype: 'image/png',\n    filename: 'windy_' + rel.data + '_' + String(rel.horario).replace(/:/g, '-') + '.png',\n    data: rel.imagem_base64,\n  },\n  caption: rel.resumo,\n};\n\n// Só a imagem é enviada (o relatório completo em texto foi removido).\nreturn [{ json: { chatId: cfg.chatId, resumo: rel.resumo, bodyImagem } }];"
       },
-      "name": "Montar Mensagens",
+      "name": "Montar Imagem",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -131,33 +131,7 @@
         320,
         -16
       ],
-      "notes": "Manda o print do mapa com o resumo como legenda."
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:3000/api/sendText",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Montar Mensagens').item.json.bodyTexto) }}",
-        "options": {
-          "timeout": 60000,
-          "retry": {
-            "retry": {
-              "maxRetries": 2,
-              "waitBetweenRetries": 3000
-            }
-          }
-        }
-      },
-      "name": "WAHA → Enviar Texto",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        544,
-        -16
-      ],
-      "notes": "Manda o relatório completo em texto. Se quiser só a imagem, delete este node."
+      "notes": "Manda o print do mapa com o resumo como legenda. Esta é a ÚNICA mensagem enviada — o relatório completo em texto foi removido."
     }
   ],
   "connections": {
@@ -198,29 +172,18 @@
       "main": [
         [
           {
-            "node": "Montar Mensagens",
+            "node": "Montar Imagem",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Montar Mensagens": {
+    "Montar Imagem": {
       "main": [
         [
           {
             "node": "WAHA → Enviar Imagem",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "WAHA → Enviar Imagem": {
-      "main": [
-        [
-          {
-            "node": "WAHA → Enviar Texto",
             "type": "main",
             "index": 0
           }
