@@ -23,7 +23,6 @@ Dockerfile
 iniciar.bat
 n8n_workflow.json
 n8n_error_workflow.json
-teste_envio.py
 requirements-dev.txt
 pyproject.toml
 ruff.toml

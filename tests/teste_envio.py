@@ -8,13 +8,20 @@ Pré-requisitos:
     2. .env configurado (copy .env.example .env e preencha)
 
 Uso:
-    python teste_envio.py
+    python tests/teste_envio.py
 """
 import json
+import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-from config import ConfigError, obter, obter_destinatario, obter_int
+# Rodando de dentro de tests/, o modulo config.py fica um nivel acima:
+# adiciona a raiz do projeto no sys.path para o import funcionar de qualquer
+# lugar (python tests/teste_envio.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config import ConfigError, obter, obter_destinatario, obter_int  # noqa: E402
 
 WAHA = obter("WAHA_URL", "http://localhost:3000") or "http://localhost:3000"
 PORTA_API = obter_int("CLIMA_PORT", 8000)

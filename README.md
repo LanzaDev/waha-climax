@@ -36,7 +36,7 @@ repositório **não contém dados pessoais**.
 | `n8n_workflow.json` | Export do workflow principal pra referência / reimport no n8n (**vem com placeholders**) |
 | `n8n_error_workflow.json` | Workflow de **alerta de falha** (Error Trigger → WhatsApp). Vincule como *Error Workflow* do principal |
 | `tests/` | Testes pytest do `scraper.py` e do `config.py` (sem internet/navegador) |
-| `teste_envio.py` | Teste de ponta a ponta via Python (gera relatório e manda no WhatsApp) |
+| `tests/teste_envio.py` | Teste de ponta a ponta via Python (gera relatório e manda no WhatsApp). Rode com `python tests/teste_envio.py` |
 | `.env.example` | Modelo de configuração — copie para `.env` e edite com seus dados |
 | `.env` | **Seus dados** (número, sessão, coordenadas). Local, ignorado pelo git |
 | `requirements.txt` | Dependências (`pip install -r requirements.txt`) — travadas pra bater com a imagem Docker |
@@ -304,8 +304,8 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 
 | Variável | Padrão | O que faz |
 |---|---|---|
-| `WHATSAPP_CHAT_ID` | — | Destino: seu número `…@c.us` **ou** um grupo `…@g.us` (obrigatório no `teste_envio.py`) |
-| `WAHA_SESSION` | — | Nome da sessão no WAHA (obrigatório no `teste_envio.py`) |
+| `WHATSAPP_CHAT_ID` | — | Destino: seu número `…@c.us` **ou** um grupo `…@g.us` (obrigatório no `tests/teste_envio.py`) |
+| `WAHA_SESSION` | — | Nome da sessão no WAHA (obrigatório no `tests/teste_envio.py`) |
 | `WAHA_URL` | `http://localhost:3000` | URL do WAHA |
 | `CLIMA_LAT` / `CLIMA_LON` | `-22.264` / `-49.136` | Centro do mapa no Windy |
 | `CLIMA_LOCAL` | `Bauru/SP e região` | Rótulo do local nos relatórios |
