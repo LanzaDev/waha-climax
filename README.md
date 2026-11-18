@@ -46,6 +46,7 @@ repositório **não contém dados pessoais**.
 | `.github/workflows/ci.yml` | CI: roda `ruff check` + `pytest` a cada push/PR |
 | `Dockerfile` | Imagem da API (Python + Chromium prontos, sem instalar nada na máquina) |
 | `docker-compose.yml` | Sobe a API em container com healthcheck e auto-restart |
+| `docker-compose.infra.yml` | Sobe a **infra**: n8n (:5678) + WAHA (:3000), com volumes fixos (preserva o login do WhatsApp) |
 | `.dockerignore` | Garante que `.env` e arquivos internos **nunca** entrem na imagem |
 
 > `prints_windy/` é criado automaticamente (prints, relatórios e QRs) e não
@@ -55,14 +56,40 @@ repositório **não contém dados pessoais**.
 
 ## Setup (uma vez só)
 
-### 1. Dependências Python
+### 1. Subir a infra (n8n + WAHA)
+
+O n8n (orquestrador) e o WAHA (ponte com o WhatsApp) rodam em containers
+próprios, independentes do projeto. O `docker-compose.infra.yml` deste
+repositório sobe os dois:
+
+```bash
+docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml ps
+```
+
+| Container | Porta | Para quê |
+|---|---|---|
+| `n8n` | 5678 | Orquestra o workflow (http://localhost:5678) |
+| `waha` | 3000 | Manda a mensagem no WhatsApp (http://localhost:3000/dashboard) |
+
+> Os volumes (`n8n_data`, `waha_sessions`) guardam o estado: **não apague**,
+> senão você perde os workflows e o login do WhatsApp.
+>
+> O WAHA já vem com `restart: unless-stopped` — volta sozinho depois de
+> reiniciar o Docker Desktop.
+
+### 2. Dependências Python
 
 ```bash
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-### 2. Configurar o `.env`
+> Só é necessário se for rodar a API **em Python local** (etapa 4, opção B).
+> Na opção Docker (recomendada) você não instala Python nem Playwright na
+> máquina — o Chromium já vem pronto dentro da imagem.
+
+### 3. Configurar o `.env`
 
 ```bat
 copy .env.example .env
@@ -78,7 +105,7 @@ Edite o `.env` com **seus** dados:
 
 > O `.gitignore` garante que o `.env` **nunca** seja enviado ao GitHub.
 
-### 3. Subir a API
+### 4. Subir a API
 
 **Opção A — Docker (recomendado: não exige Python na máquina):**
 
@@ -104,7 +131,7 @@ Ou manualmente: `python api.py` → confirme em <http://localhost:8000/relatorio
 > — funciona igual com as duas opções. Em **Linux**, o compose do n8n precisa
 > de `extra_hosts: ["host.docker.internal:host-gateway"]`.
 
-### 4. WhatsApp (WAHA)
+### 5. WhatsApp (WAHA)
 
 A sessão do WAHA precisa estar `WORKING`:
 
@@ -128,7 +155,7 @@ O nome da sessão e o destino ficam em dois lugares (use o mesmo nos dois):
 O `chatId` pode ser o **seu número** (`@c.us`) ou o **ID de um grupo**
 (`@g.us`) — veja a seção "Trocar o destino (seu número **ou** um grupo)".
 
-### 5. Workflow no n8n
+### 6. Workflow no n8n
 
 Abra <http://localhost:5678> e importe `n8n_workflow.json`
 (⋯ → **Import from File**), ou use o workflow já existente no seu n8n.
@@ -146,7 +173,7 @@ Abra <http://localhost:5678> e importe `n8n_workflow.json`
 >   `docker restart n8n` — sem o restart o servidor não re-registra o cron e
 >   o agendamento não dispara.
 
-### 6. Workflow de alerta de falha (recomendado)
+### 7. Workflow de alerta de falha (recomendado)
 
 Se a API estiver desligada ou o WAHA cair, o robô para de vez — ninguém
 avisa. O `n8n_error_workflow.json` resolve: é um workflow separado com
@@ -176,7 +203,7 @@ em segundos chega:
 
 ```bash
 pip install -r requirements-dev.txt   # pytest + ruff
-python -m pytest -q                   # 22 testes (rápidos, sem internet)
+python -m pytest -q                   # 25 testes (rápidos, sem internet)
 python -m ruff check .                # lint
 ```
 
@@ -316,8 +343,8 @@ Todas ficam no `.env` (modelo: `.env.example`) e são lidas pelo `config.py`:
 | WAHA `404` em `sendImage` | Sessão errada/parada ou número inválido |
 | Envia pro privado mas **não chega no grupo** | A conta do WAHA não está no grupo → adicione-a; confira o ID em `GET /api/{sessao}/groups` (campo **JID**) |
 | `chatId inválido no node "Definir Destinatário"` | ID mal formatado — deve terminar em `@c.us` (pessoa) ou `@g.us` (grupo), sem espaços |
-| WAHA `"status": "SCAN_QR_CODE"` / `"FAILED"` | Regere o QR e escaneie de novo (seção 4) |
-| Falha no agendamento e **ninguém sabe** | Configure o workflow de alerta (seção 6) — ele avisa ❌ no WhatsApp quando o principal falha |
+| WAHA `"status": "SCAN_QR_CODE"` / `"FAILED"` | Regere o QR e escaneie de novo (seção 5) |
+| Falha no agendamento e **ninguém sabe** | Configure o workflow de alerta (seção 7) — ele avisa ❌ no WhatsApp quando o principal falha |
 | Print chegando em branco/preto | Aumente o tempo: `CLIMA_WAIT_MS=20000` |
 | Mensagem duplicada | Existem 2 workflows iguais → apague/ative só 1 |
 | Code node: `Unexpected token ','` | `jsCode` do n8n precisa ser **string**, não array de linhas (reimporte o `n8n_workflow.json` corrigido) |

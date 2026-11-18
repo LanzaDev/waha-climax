@@ -1,0 +1,60 @@
+# Infra do robô de clima: n8n (orquestrador) + WAHA (ponte com o WhatsApp).
+#
+# Uso:
+#   docker compose -f docker-compose.infra.yml up -d
+#   docker compose -f docker-compose.infra.yml ps
+#   docker compose -f docker-compose.infra.yml down
+#
+# A API do relatório (api.py) NÃO faz parte daqui — ela sobe no projeto
+# principal (docker compose up -d, ou iniciar.bat). Veja o README.
+#
+# ATENÇÃO aos volumes: n8n_data guarda os workflows e o login do n8n;
+# waha_sessions guarda a sessão do WhatsApp. O campo `name` fixo impede o
+# Docker de prefixar com o nome do projeto (senão o login se perde).
+#
+# `name: clima-infra` dá um projeto próprio a este compose — sem isso ele
+# dividiria o namespace com a API (docker-compose.yml) e veria o container
+# `clima-api` como "órfão" (e `--remove-orphans` apagaria a API).
+name: clima-infra
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      N8N_RELEASE_TYPE: stable
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    restart: unless-stopped
+    platform: linux/amd64
+    environment:
+      TZ: America/Sao_Paulo
+      WHATSAPP_HOOK_URL: http://host.docker.internal:5678/webhook/webhook
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WHATSAPP_HOOK_EVENTS: message
+      WAHA_NO_API_KEY: true
+      WAHA_DASHBOARD_NO_PASSWORD: true
+      WHATSAPP_SWAGGER_NO_PASSWORD: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+
+volumes:
+  # `name` fixo = o volume não ganha prefixo do projeto (mantém o login)
+  n8n_data:
+    name: n8n_data
+  waha_sessions:
+    name: waha_sessions
+  waha_media:
+    name: waha_media

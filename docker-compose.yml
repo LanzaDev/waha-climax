@@ -20,6 +20,10 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Sem isso o container roda em UTC e o carimbo de tempo do relatório
+      # (e do arquivo PNG) sai 3h adiantado no horário de Brasília.
+      TZ: America/Sao_Paulo
     volumes:
       # prints/relatórios ficam disponíveis na máquina
       - ./prints_windy:/app/prints_windy

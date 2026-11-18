@@ -3,9 +3,11 @@
 
 # Não precisa na imagem
 .git
+.github
 .idea
 .vscode
 __pycache__
+tests
 prints_windy
 *.pyc
 Thumbs.db
@@ -16,8 +18,12 @@ README.md
 .gitignore
 .dockerignore
 docker-compose.yml
+docker-compose.infra.yml
 Dockerfile
 iniciar.bat
 n8n_workflow.json
+n8n_error_workflow.json
 teste_envio.py
-requirements.txt.bak
+requirements-dev.txt
+pyproject.toml
+ruff.toml
